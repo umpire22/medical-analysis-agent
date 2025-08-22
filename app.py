@@ -1,80 +1,129 @@
 import streamlit as st
 import pandas as pd
+import random
 
-st.title("🏥 Simple Medical Analysis Agent")
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="🩺 Medical Analysis Agent", page_icon="🩺", layout="wide")
 
-st.write("Enter patient details or upload a CSV file for analysis.")
+# --- CUSTOM STYLES ---
+st.markdown("""
+    <style>
+        body {
+            background: linear-gradient(135deg, #e8f5e9, #ffffff);
+        }
+        .stButton > button {
+            background: linear-gradient(to right, #2e7d32, #43a047);
+            color: white;
+            border-radius: 12px;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .stButton > button:hover {
+            background: linear-gradient(to right, #43a047, #2e7d32);
+            transform: scale(1.05);
+        }
+        .card {
+            padding: 20px;
+            border-radius: 15px;
+            background-color: #ffffff;
+            box-shadow: 2px 2px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- Option 1: Manual Input ---
-st.subheader("Manual Patient Data Entry")
-age = st.number_input("Age", min_value=1, max_value=120, step=1)
-weight = st.number_input("Weight (kg)", min_value=1.0, max_value=200.0, step=0.1)
-bp = st.number_input("Blood Pressure (systolic)", min_value=50, max_value=250, step=1)
-sugar = st.number_input("Blood Sugar (mg/dL)", min_value=50, max_value=500, step=1)
+# --- APP HEADER ---
+st.markdown("<h1 style='text-align: center; color: #2e7d32;'>🩺 Medical Analysis Agent</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size:18px;'>Analyze symptoms and assess potential health risks</p>", unsafe_allow_html=True)
 
-if st.button("Analyze Patient"):
-    analysis = []
-    if bp > 140:
-        analysis.append("⚠️ High Blood Pressure (Hypertension risk)")
-    elif bp < 90:
-        analysis.append("⚠️ Low Blood Pressure (Hypotension risk)")
-    else:
-        analysis.append("✅ Normal Blood Pressure")
+# --- SESSION STATE FOR HISTORY ---
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-    if sugar > 180:
-        analysis.append("⚠️ High Blood Sugar (Possible Diabetes risk)")
-    elif sugar < 70:
-        analysis.append("⚠️ Low Blood Sugar (Hypoglycemia risk)")
-    else:
-        analysis.append("✅ Normal Blood Sugar")
+# --- MANUAL SYMPTOM CHECK ---
+with st.container():
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📝 Manual Symptom Check")
 
-    if weight / ((1.65) ** 2) > 30:  # simple BMI check (assuming avg height 1.65m)
-        analysis.append("⚠️ Possible Obesity (Weight management needed)")
-    else:
-        analysis.append("✅ Healthy Weight Range")
+    symptoms = st.text_area("Enter symptoms (e.g., 'Fever, headache, fatigue')")
 
-    st.subheader("Medical Analysis Result:")
-    for a in analysis:
-        st.write(a)
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("🔎 Analyze Symptoms"):
+            if symptoms.strip():
+                # Simple random risk simulation
+                risk_score = random.randint(1, 100)
+                if risk_score < 40:
+                    result = f"✅ Low Risk ({risk_score}%)"
+                    color = "green"
+                elif 40 <= risk_score < 70:
+                    result = f"⚠️ Medium Risk ({risk_score}%)"
+                    color = "orange"
+                else:
+                    result = f"❌ High Risk ({risk_score}%)"
+                    color = "red"
 
-# --- Option 2: Upload CSV ---
-st.subheader("Batch Analysis (Upload CSV)")
-uploaded_file = st.file_uploader("Upload patient data (CSV)", type=["csv"])
+                st.markdown(f"<p style='color:{color}; font-size:18px; font-weight:bold;'>{result}</p>", unsafe_allow_html=True)
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+                # Save to history
+                st.session_state.history.append({"Symptoms": symptoms, "Risk Score": risk_score, "Result": result})
+            else:
+                st.warning("Please enter symptoms.")
 
-    st.write("📄 Uploaded Data")
-    st.dataframe(df.head())
+    with col2:
+        if st.button("🗑 Clear History"):
+            st.session_state.history = []
+            st.success("History cleared!")
 
-    def analyze_row(row):
-        results = []
-        if row["BloodPressure"] > 140:
-            results.append("High BP")
-        elif row["BloodPressure"] < 90:
-            results.append("Low BP")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- HISTORY LOG ---
+if st.session_state.history:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📜 Analysis History")
+    hist_df = pd.DataFrame(st.session_state.history)
+    st.dataframe(hist_df, use_container_width=True)
+    st.download_button("⬇️ Download History", data=hist_df.to_csv(index=False), file_name="medical_history.csv", mime="text/csv")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- BULK MEDICAL ANALYSIS ---
+with st.container():
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📂 Bulk Medical Analysis (CSV Upload)")
+
+    uploaded_file = st.file_uploader("Upload a CSV file with a column named 'Symptoms'", type="csv")
+
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+
+        if "Symptoms" in df.columns:
+            results = []
+            for s in df["Symptoms"]:
+                risk_score = random.randint(1, 100)
+                if risk_score < 40:
+                    results.append(f"✅ Low Risk ({risk_score}%)")
+                elif 40 <= risk_score < 70:
+                    results.append(f"⚠️ Medium Risk ({risk_score}%)")
+                else:
+                    results.append(f"❌ High Risk ({risk_score}%)")
+
+            df["Medical Analysis"] = results
+
+            # Highlight results
+            def highlight_risk(val):
+                if "Low Risk" in val:
+                    return "background-color: #c8e6c9; color: green;"
+                elif "Medium Risk" in val:
+                    return "background-color: #fff9c4; color: orange;"
+                else:
+                    return "background-color: #ffcdd2; color: red;"
+
+            st.write("🔎 Medical Analysis Results:")
+            st.dataframe(df.style.applymap(highlight_risk, subset=["Medical Analysis"]))
+
+            # Download button
+            st.download_button("⬇️ Download Results", data=df.to_csv(index=False), file_name="medical_results.csv", mime="text/csv")
         else:
-            results.append("Normal BP")
-
-        if row["BloodSugar"] > 180:
-            results.append("High Sugar")
-        elif row["BloodSugar"] < 70:
-            results.append("Low Sugar")
-        else:
-            results.append("Normal Sugar")
-
-        if row["Weight"] / ((1.65) ** 2) > 30:
-            results.append("Obesity Risk")
-        else:
-            results.append("Normal Weight")
-
-        return ", ".join(results)
-
-    df["Medical_Analysis"] = df.apply(analyze_row, axis=1)
-
-    st.subheader("📊 Analysis Results")
-    st.dataframe(df)
-
-    # download option
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download Results", data=csv, file_name="medical_results.csv")
+            st.error("CSV must contain a column named 'Symptoms'.")
+    st.markdown("</div>", unsafe_allow_html=True)
