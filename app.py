@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
+from io import StringIO
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="🩺 Medical Analysis Agent", page_icon="🩺", layout="wide")
@@ -90,40 +91,54 @@ if st.session_state.history:
 # --- BULK MEDICAL ANALYSIS ---
 with st.container():
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📂 Bulk Medical Analysis (CSV Upload)")
+    st.subheader("📂 Bulk Medical Analysis")
 
+    # Option 1: Paste CSV data
+    pasted_data = st.text_area("Or paste patient data here (CSV format, must include 'Symptoms' column)", height=200)
+
+    # Option 2: Upload CSV file
     uploaded_file = st.file_uploader("Upload a CSV file with a column named 'Symptoms'", type="csv")
 
+    df = None
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
+    elif pasted_data.strip() != "":
+        df = pd.read_csv(StringIO(pasted_data))
 
+    if df is not None:
         if "Symptoms" in df.columns:
-            results = []
-            for s in df["Symptoms"]:
-                risk_score = random.randint(1, 100)
-                if risk_score < 40:
-                    results.append(f"✅ Low Risk ({risk_score}%)")
-                elif 40 <= risk_score < 70:
-                    results.append(f"⚠️ Medium Risk ({risk_score}%)")
-                else:
-                    results.append(f"❌ High Risk ({risk_score}%)")
+            if st.button("Analyze Bulk Data"):
+                results = []
+                for s in df["Symptoms"]:
+                    risk_score = random.randint(1, 100)
+                    if risk_score < 40:
+                        results.append(f"✅ Low Risk ({risk_score}%)")
+                    elif 40 <= risk_score < 70:
+                        results.append(f"⚠️ Medium Risk ({risk_score}%)")
+                    else:
+                        results.append(f"❌ High Risk ({risk_score}%)")
 
-            df["Medical Analysis"] = results
+                df["Medical Analysis"] = results
 
-            # Highlight results
-            def highlight_risk(val):
-                if "Low Risk" in val:
-                    return "background-color: #c8e6c9; color: green;"
-                elif "Medium Risk" in val:
-                    return "background-color: #fff9c4; color: orange;"
-                else:
-                    return "background-color: #ffcdd2; color: red;"
+                # Highlight results
+                def highlight_risk(val):
+                    if "Low Risk" in val:
+                        return "background-color: #c8e6c9; color: green;"
+                    elif "Medium Risk" in val:
+                        return "background-color: #fff9c4; color: orange;"
+                    else:
+                        return "background-color: #ffcdd2; color: red;"
 
-            st.write("🔎 Medical Analysis Results:")
-            st.dataframe(df.style.applymap(highlight_risk, subset=["Medical Analysis"]))
+                st.write("🔎 Medical Analysis Results:")
+                st.dataframe(df.style.applymap(highlight_risk, subset=["Medical Analysis"]))
 
-            # Download button
-            st.download_button("⬇️ Download Results", data=df.to_csv(index=False), file_name="medical_results.csv", mime="text/csv")
+                # Download button
+                st.download_button(
+                    "⬇️ Download Results",
+                    data=df.to_csv(index=False),
+                    file_name="medical_results.csv",
+                    mime="text/csv"
+                )
         else:
             st.error("CSV must contain a column named 'Symptoms'.")
     st.markdown("</div>", unsafe_allow_html=True)
